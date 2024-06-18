@@ -1,0 +1,21 @@
+plugins {
+    id "com.github.muscaa.fluff-gradle" version "1.0.12"
+}
+
+fluff {
+	include = [
+		"LICENSE": "META-INF/LICENSE",
+		"NOTICE": "META-INF/NOTICE"
+	]
+}
+
+repositories {
+    mavenCentral()
+    maven { url "https://jitpack.io" }
+}
+
+dependencies {
+	api "com.github.muscaa:fluff-core:1.0.8+"
+	api "com.github.muscaa:fluff-functions:1.0.2+"
+	api "com.github.muscaa:fluff-bin:1.0.3+"
+}
