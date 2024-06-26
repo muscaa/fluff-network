@@ -2,6 +2,6 @@ v1
 
 author muscaa
 id fluff-network
-# depends
+depends muscaa/fluff-functions, muscaa/fluff-bin
 url https://github.com/muscaa/fluff-network
 # class
