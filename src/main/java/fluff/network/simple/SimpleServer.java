@@ -15,7 +15,7 @@ public class SimpleServer extends AbstractServer {
 	
 	@Override
 	protected void createConnection(Socket socket) throws IOException, NetworkException {
-		SimpleClientConnection client = new SimpleClientConnection(this, UUID.randomUUID(), socket, defaultContext, defaultHandlerFunc.invoke());
+		SimpleClientConnection client = new SimpleClientConnection(this, UUID.randomUUID(), socket, defaultContext, defaultHandlerFunc.invoke(), defaultChannelFunc.invoke());
 		
 		if (!client.isConnected()) client.disconnect();
 	}

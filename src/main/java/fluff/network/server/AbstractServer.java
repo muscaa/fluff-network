@@ -10,6 +10,7 @@ import java.util.UUID;
 import fluff.functions.gen.Func;
 import fluff.network.INetHandler;
 import fluff.network.NetworkException;
+import fluff.network.packet.IPacketChannel;
 import fluff.network.packet.IPacketOutbound;
 import fluff.network.packet.PacketContext;
 
@@ -23,6 +24,7 @@ public abstract class AbstractServer implements IServer {
 	
 	protected PacketContext<?> defaultContext;
 	protected Func<? extends INetHandler> defaultHandlerFunc;
+	protected Func<? extends IPacketChannel> defaultChannelFunc;
 	
 	public AbstractServer(int port) {
 		this.port = port;
@@ -114,5 +116,10 @@ public abstract class AbstractServer implements IServer {
 	@Override
 	public <V extends INetHandler> void setDefaultContext(PacketContext<? super V> defaultContext, Func<V> defaultHandlerFunc) {
 		setDefaultContextUnsafe(defaultContext, defaultHandlerFunc);
+	}
+	
+	@Override
+	public void setDefaultChannel(Func<? extends IPacketChannel> defaultChannelFunc) {
+		this.defaultChannelFunc = defaultChannelFunc;
 	}
 }
