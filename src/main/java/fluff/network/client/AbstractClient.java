@@ -1,10 +1,13 @@
 package fluff.network.client;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.Objects;
 
 import fluff.bin.stream.BinaryInputStream;
 import fluff.bin.stream.BinaryOutputStream;
@@ -58,12 +61,6 @@ public abstract class AbstractClient implements IClient {
 		} catch (IOException e) {}
 	}
 	
-	protected void setContextUnsafe(PacketContext<?> context, INetHandler handler) {
-		this.context = context;
-		this.handler = handler;
-		this.channel = context.createChannel(this);
-	}
-	
 	protected void onError(ClientErrorType type, Exception e) {
 		switch (type) {
 			case CONNECTION:
@@ -86,27 +83,24 @@ public abstract class AbstractClient implements IClient {
 		handler.onDisconnect();
 	}
 	
-	@SuppressWarnings("resource")
 	protected void handleSend(IPacketOutbound packet) throws SocketException, IOException, NetworkException {
-		if (context == null) throw new NetworkException("Packet context cannot be null!");
-		if (packet == null) throw new NetworkException("Packet cannot be null!");
-		
 		Class<? extends IPacketOutbound> packetClass = packet.getClass();
 		if (!context.contains(packetClass)) throw new NetworkException("Invalid packet!");
 		
-		BinaryOutputStream out = channel.prepareOutput(socketOut);
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		BinaryOutputStream out = new BinaryOutputStream(bytes);
 		
 		out.Int(context.getID(packetClass));
 		out.Data(packet);
 		
-		channel.finalizeOutput(socketOut, out);
+		channel.write(socketOut, bytes);
 	}
 	
-	@SuppressWarnings("resource")
 	protected void handleReceive() {
 		while (isConnected()) {
 			try {
-				BinaryInputStream in = channel.prepareInput(socketIn);
+				ByteArrayInputStream bytes = channel.read(socketIn);
+				BinaryInputStream in = new BinaryInputStream(bytes);
 				
 				int id = in.Int();
 				if (!context.contains(id)) throw new NetworkException("Packet does not exist!");
@@ -116,8 +110,6 @@ public abstract class AbstractClient implements IClient {
 				if (!(packetBase instanceof IPacketInbound packet)) throw new NetworkException("Received outbound packet!");
 				
 				in.Data(packet);
-				
-				channel.finalizeInput(socketIn, in);
 				
 				receive(descriptor, packet);
 			} catch (SocketException e) {
@@ -129,11 +121,19 @@ public abstract class AbstractClient implements IClient {
 	}
 	
 	protected void receive(PacketDescriptor descriptor, IPacketInbound packet) {
+		Objects.requireNonNull(handler);
+		Objects.requireNonNull(descriptor);
+		Objects.requireNonNull(packet);
+		
 		descriptor.handle(handler, packet);
 	}
 	
 	@Override
 	public void send(IPacketOutbound packet) {
+		Objects.requireNonNull(context);
+		Objects.requireNonNull(channel);
+		Objects.requireNonNull(packet);
+		
 		try {
 			handleSend(packet);
 		} catch (SocketException e) {
@@ -153,8 +153,18 @@ public abstract class AbstractClient implements IClient {
 		return socket != null && socket.isConnected() && !socket.isClosed();
 	}
 	
+	protected void setContextUnsafe(PacketContext<?> context, INetHandler handler) {
+		this.context = context;
+		this.handler = handler;
+	}
+	
 	@Override
 	public <V extends INetHandler> void setContext(PacketContext<? super V> context, V handler) {
 		setContextUnsafe(context, handler);
+	}
+	
+	@Override
+	public void setChannel(IPacketChannel channel) {
+		this.channel = channel;
 	}
 }
