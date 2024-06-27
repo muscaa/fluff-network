@@ -13,13 +13,13 @@ import fluff.network.packet.IPacketChannel;
 public class DefaultPacketChannel implements IPacketChannel {
 	
 	@Override
-	public ByteArrayInputStream read(InputStream socketIn) throws IOException, NetworkException {
-		return new ByteArrayInputStream(Binary.LenBytes(socketIn::read));
+	public ByteArrayInputStream read(InputStream input) throws IOException, NetworkException {
+		return new ByteArrayInputStream(Binary.LenBytes(input::read));
 	}
 	
 	@Override
-	public void write(OutputStream socketOut, ByteArrayOutputStream bytes) throws IOException, NetworkException {
-		Binary.LenBytes(socketOut::write, bytes.toByteArray());
-		socketOut.flush();
+	public void write(OutputStream output, ByteArrayOutputStream bytes) throws IOException, NetworkException {
+		Binary.LenBytes(output::write, bytes.toByteArray());
+		output.flush();
 	}
 }

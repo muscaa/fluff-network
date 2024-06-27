@@ -10,7 +10,7 @@ import fluff.network.NetworkException;
 
 public interface IPacketChannel {
 	
-	ByteArrayInputStream read(InputStream socketIn) throws IOException, NetworkException;
+	ByteArrayInputStream read(InputStream input) throws IOException, NetworkException;
 	
-	void write(OutputStream socketOut, ByteArrayOutputStream bytes) throws IOException, NetworkException;
+	void write(OutputStream output, ByteArrayOutputStream bytes) throws IOException, NetworkException;
 }

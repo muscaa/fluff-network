@@ -28,11 +28,23 @@ public class EncryptedPacketChannel implements IPacketChannel {
 		this.secretKey = secretKey;
 	}
 	
+	public EncryptedPacketChannel(String cipherTransformation, SecretKey secretKey) {
+		this(cipherTransformation, 16, secretKey);
+	}
+	
+	public EncryptedPacketChannel(int ivSize, SecretKey secretKey) {
+		this("AES/CBC/PKCS5Padding", ivSize, secretKey);
+	}
+	
+	public EncryptedPacketChannel(SecretKey secretKey) {
+		this("AES/CBC/PKCS5Padding", 16, secretKey);
+	}
+	
 	@Override
-	public ByteArrayInputStream read(InputStream socketIn) throws IOException, NetworkException {
+	public ByteArrayInputStream read(InputStream input) throws IOException, NetworkException {
         try {
-    		byte[] iv = Binary.Bytes(socketIn::read, ivSize);
-    		byte[] encrypted = Binary.LenBytes(socketIn::read);
+    		byte[] iv = Binary.Bytes(input::read, ivSize);
+    		byte[] encrypted = Binary.LenBytes(input::read);
     		
     		Cipher cipher = Cipher.getInstance(cipherTransformation);
             cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(iv));
@@ -45,7 +57,7 @@ public class EncryptedPacketChannel implements IPacketChannel {
 	}
 	
 	@Override
-	public void write(OutputStream socketOut, ByteArrayOutputStream bytes) throws IOException, NetworkException {
+	public void write(OutputStream output, ByteArrayOutputStream bytes) throws IOException, NetworkException {
         try {
     		byte[] iv = new byte[ivSize];
     		new SecureRandom().nextBytes(iv);
@@ -54,10 +66,10 @@ public class EncryptedPacketChannel implements IPacketChannel {
 			cipher.init(Cipher.ENCRYPT_MODE, secretKey, new IvParameterSpec(iv));
 			byte[] encrypted = cipher.doFinal(bytes.toByteArray());
 			
-			Binary.Bytes(socketOut::write, iv, ivSize);
-			Binary.LenBytes(socketOut::write, encrypted);
+			Binary.Bytes(output::write, iv, ivSize);
+			Binary.LenBytes(output::write, encrypted);
 			
-			socketOut.flush();
+			output.flush();
 		} catch (GeneralSecurityException e) {
 			throw new NetworkException(e);
 		}
