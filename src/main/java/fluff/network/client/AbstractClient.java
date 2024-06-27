@@ -11,6 +11,7 @@ import fluff.bin.stream.BinaryOutputStream;
 import fluff.network.INetHandler;
 import fluff.network.NetworkException;
 import fluff.network.packet.IPacketBase;
+import fluff.network.packet.IPacketChannel;
 import fluff.network.packet.IPacketInbound;
 import fluff.network.packet.IPacketOutbound;
 import fluff.network.packet.PacketContext;
@@ -24,6 +25,7 @@ public abstract class AbstractClient implements IClient {
 	
 	protected PacketContext<?> context;
 	protected INetHandler handler;
+	protected IPacketChannel channel;
 	
 	protected void openConnection(Socket socket) throws IOException, NetworkException {
 		if (isConnected()) throw new NetworkException("Client already has a connection!");
@@ -59,6 +61,7 @@ public abstract class AbstractClient implements IClient {
 	protected void setContextUnsafe(PacketContext<?> context, INetHandler handler) {
 		this.context = context;
 		this.handler = handler;
+		this.channel = context.createChannel(this);
 	}
 	
 	protected void onError(ClientErrorType type, Exception e) {
@@ -91,22 +94,20 @@ public abstract class AbstractClient implements IClient {
 		Class<? extends IPacketOutbound> packetClass = packet.getClass();
 		if (!context.contains(packetClass)) throw new NetworkException("Invalid packet!");
 		
-		OutputStream channelOut = context.getChannel().openOutput(socketOut);
+		BinaryOutputStream out = channel.prepareOutput(socketOut);
 		
-		BinaryOutputStream out = new BinaryOutputStream(channelOut);
 		out.Int(context.getID(packetClass));
 		out.Data(packet);
 		
-		context.getChannel().closeOutput(socketOut, channelOut);
+		channel.finalizeOutput(socketOut, out);
 	}
 	
 	@SuppressWarnings("resource")
 	protected void handleReceive() {
 		while (isConnected()) {
 			try {
-				InputStream channelIn = context.getChannel().openInput(socketIn);
+				BinaryInputStream in = channel.prepareInput(socketIn);
 				
-				BinaryInputStream in = new BinaryInputStream(channelIn);
 				int id = in.Int();
 				if (!context.contains(id)) throw new NetworkException("Packet does not exist!");
 				
@@ -116,7 +117,7 @@ public abstract class AbstractClient implements IClient {
 				
 				in.Data(packet);
 				
-				context.getChannel().closeInput(socketIn, channelIn);
+				channel.finalizeInput(socketIn, in);
 				
 				receive(descriptor, packet);
 			} catch (SocketException e) {

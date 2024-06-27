@@ -4,13 +4,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-public interface IPacketChannel<I extends InputStream, O extends OutputStream> {
+import fluff.bin.stream.BinaryInputStream;
+import fluff.bin.stream.BinaryOutputStream;
+
+public interface IPacketChannel {
 	
-	I openInput(InputStream socketIn) throws IOException;
+	BinaryInputStream prepareInput(InputStream socketIn) throws IOException;
 	
-	void closeInput(InputStream socketIn, I in) throws IOException;
+	void finalizeInput(InputStream socketIn, BinaryInputStream in) throws IOException;
 	
-	O openOutput(OutputStream socketOut) throws IOException;
+	BinaryOutputStream prepareOutput(OutputStream socketOut) throws IOException;
 	
-	void closeOutput(OutputStream socketOut, O out) throws IOException;
+	void finalizeOutput(OutputStream socketOut, BinaryOutputStream out) throws IOException;
 }

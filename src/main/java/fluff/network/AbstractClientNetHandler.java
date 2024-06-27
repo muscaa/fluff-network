@@ -12,6 +12,5 @@ public abstract class AbstractClientNetHandler<C extends IClient> implements INe
 	}
 	
 	@Override
-	public void onDisconnect() {
-	}
+	public void onDisconnect() {}
 }

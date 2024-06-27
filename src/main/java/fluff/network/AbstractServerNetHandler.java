@@ -16,6 +16,5 @@ public abstract class AbstractServerNetHandler<S extends IServer, C extends ICli
 	}
 	
 	@Override
-	public void onDisconnect() {
-	}
+	public void onDisconnect() {}
 }

@@ -4,27 +4,34 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import fluff.bin.stream.BinaryInputStream;
+import fluff.bin.stream.BinaryOutputStream;
+import fluff.network.client.IClient;
 import fluff.network.packet.IPacketChannel;
 
-public class DefaultPacketChannel implements IPacketChannel<InputStream, OutputStream> {
+public class DefaultPacketChannel implements IPacketChannel {
 	
-	public static final IPacketChannel INSTANCE = new DefaultPacketChannel();
+	protected final IClient client;
 	
-	@Override
-	public InputStream openInput(InputStream socketIn) throws IOException {
-		return socketIn;
+	public DefaultPacketChannel(IClient client) {
+		this.client = client;
 	}
 	
 	@Override
-	public void closeInput(InputStream socketIn, InputStream in) throws IOException {}
-	
-	@Override
-	public OutputStream openOutput(OutputStream socketOut) throws IOException {
-		return socketOut;
+	public BinaryInputStream prepareInput(InputStream socketIn) throws IOException {
+		return new BinaryInputStream(socketIn);
 	}
 	
 	@Override
-	public void closeOutput(OutputStream socketOut, OutputStream out) throws IOException {
-		socketOut.flush();
+	public void finalizeInput(InputStream socketIn, BinaryInputStream in) throws IOException {}
+	
+	@Override
+	public BinaryOutputStream prepareOutput(OutputStream socketOut) throws IOException {
+		return new BinaryOutputStream(socketOut);
+	}
+	
+	@Override
+	public void finalizeOutput(OutputStream socketOut, BinaryOutputStream out) throws IOException {
+		out.flush();
 	}
 }

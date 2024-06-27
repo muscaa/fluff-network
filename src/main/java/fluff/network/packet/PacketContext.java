@@ -4,8 +4,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 import fluff.functions.gen.Func;
+import fluff.functions.gen.obj.Func1;
 import fluff.functions.gen.obj.obj.VoidFunc2;
 import fluff.network.INetHandler;
+import fluff.network.client.IClient;
 
 public class PacketContext<V extends INetHandler> {
 	
@@ -13,11 +15,11 @@ public class PacketContext<V extends INetHandler> {
 	private final Map<Class<? extends IPacketBase>, Integer> ids = new HashMap<>();
 	
 	private final String name;
-	private final IPacketChannel channel;
+	private final Func1<IPacketChannel, IClient> channelFunc;
 	
-	public PacketContext(String name, IPacketChannel channel) {
+	public PacketContext(String name, Func1<IPacketChannel, IClient> channelFunc) {
 		this.name = name;
-		this.channel = channel;
+		this.channelFunc = channelFunc;
 	}
 	
 	public PacketContext<V> extend(PacketContext<? super V> context) {
@@ -40,6 +42,10 @@ public class PacketContext<V extends INetHandler> {
 		return this;
 	}
 	
+	public IPacketChannel createChannel(IClient client) {
+		return channelFunc.invoke(client);
+	}
+	
 	public boolean contains(int id) {
 		return descriptors.containsKey(id);
 	}
@@ -58,9 +64,5 @@ public class PacketContext<V extends INetHandler> {
 	
 	public String getName() {
 		return name;
-	}
-	
-	public IPacketChannel getChannel() {
-		return channel;
 	}
 }
