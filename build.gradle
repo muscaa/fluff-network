@@ -15,7 +15,7 @@ repositories {
 }
 
 dependencies {
-	api "com.github.muscaa:fluff-core:1.0.16+"
-	api "com.github.muscaa:fluff-functions:1.0.3+"
-	api "com.github.muscaa:fluff-bin:1.0.6+"
+	api "com.github.muscaa:fluff-core:1.0.+"
+	api "com.github.muscaa:fluff-functions:1.0.+"
+	api "com.github.muscaa:fluff-bin:1.0.+"
 }
