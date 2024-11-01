@@ -19,7 +19,10 @@ public class DefaultPacketChannel implements IPacketChannel {
     
     @Override
     public ByteArrayInputStream read(InputStream input) throws IOException, NetworkException {
-        return new ByteArrayInputStream(Binary.LenBytes(input::read));
+    	int len = Binary.Int(input::read);
+    	if (len == -1) return EMPTY;
+    	
+        return new ByteArrayInputStream(Binary.Bytes(input::read, len));
     }
     
     @Override

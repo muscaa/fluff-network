@@ -16,9 +16,12 @@ public abstract class AbstractClientNetHandler<C extends IClient> implements INe
     protected C client;
     
     @Override
-    public void onConnect(IClient client) throws NetworkException {
+    public void onInit(IClient client) {
         this.client = (C) client;
     }
+    
+    @Override
+    public void onConnect() throws NetworkException {}
     
     @Override
     public void onDisconnect() {}

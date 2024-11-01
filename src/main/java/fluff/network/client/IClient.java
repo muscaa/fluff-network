@@ -1,6 +1,7 @@
 package fluff.network.client;
 
 import fluff.network.INetHandler;
+import fluff.network.NetworkException;
 import fluff.network.packet.IPacketChannel;
 import fluff.network.packet.IPacketOutbound;
 import fluff.network.packet.PacketContext;
@@ -23,6 +24,18 @@ public interface IClient {
     void disconnect();
     
     /**
+     * Called when the connection is established.
+     * 
+     * @throws NetworkException if a network error occurs
+     */
+    void onConnect() throws NetworkException;
+    
+    /**
+     * Called when the connection is disconnected.
+     */
+    void onDisconnect();
+    
+    /**
      * Checks if the client is connected.
      * 
      * @return true if the client is connected, false otherwise
@@ -30,7 +43,7 @@ public interface IClient {
     boolean isConnected();
     
     /**
-     * Sets the packet context and handler for the client.
+     * Sets the packet context and handler for the client and initializes the handler.
      * 
      * @param <V> the type of the net handler
      * @param context the packet context

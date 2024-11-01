@@ -20,14 +20,14 @@ public abstract class AbstractClientConnection extends AbstractClient implements
     }
     
     @Override
-    protected void onConnect() throws NetworkException {
+    public void onConnect() throws NetworkException {
         super.onConnect();
         
         server.onConnect(this);
     }
     
     @Override
-    protected void onDisconnect() {
+    public void onDisconnect() {
         super.onDisconnect();
         
         server.onDisconnect(this);

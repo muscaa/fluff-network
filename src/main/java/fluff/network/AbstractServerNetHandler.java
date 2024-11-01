@@ -24,10 +24,13 @@ public abstract class AbstractServerNetHandler<S extends IServer, C extends ICli
     protected C connection;
     
     @Override
-    public void onConnect(IClient client) throws NetworkException {
+    public void onInit(IClient client) {
         this.connection = (C) client;
         this.server = (S) connection.getServer();
     }
+    
+    @Override
+    public void onConnect() throws NetworkException {}
     
     @Override
     public void onDisconnect() {}

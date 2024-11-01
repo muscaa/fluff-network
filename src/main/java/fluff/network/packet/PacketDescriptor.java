@@ -13,22 +13,34 @@ import fluff.network.INetHandler;
  */
 public class PacketDescriptor<H extends INetHandler, P extends IPacketBase> {
 	
+	private final PacketDirection packetDirection;
     private final Class<P> packetClass;
     private final Func<P> packetFunc;
     private final VoidFunc2<H, P> handleFunc;
     
     /**
-     * Constructs a new PacketDescriptor with the specified packet class, creation function, and handling function.
+     * Constructs a new PacketDescriptor with the specified packet direction, packet class, creation function, and handling function.
      *
+     * @param direction the direction of the packet
      * @param packetClass the class of the packet
      * @param packetFunc the function to create a new packet instance
      * @param handleFunc the function to handle the packet
      */
-    public PacketDescriptor(Class<P> packetClass, Func<P> packetFunc, VoidFunc2<H, P> handleFunc) {
+    public PacketDescriptor(PacketDirection packetDirection, Class<P> packetClass, Func<P> packetFunc, VoidFunc2<H, P> handleFunc) {
+    	this.packetDirection = packetDirection;
         this.packetClass = packetClass;
         this.packetFunc = packetFunc;
         this.handleFunc = handleFunc;
     }
+    
+    /**
+     * Retrieves the direction of the packet associated with this descriptor.
+     *
+     * @return the packet direction
+     */
+    public PacketDirection getPacketDirection() {
+		return packetDirection;
+	}
     
     /**
      * Creates a new packet instance using the creation function.

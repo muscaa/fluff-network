@@ -100,14 +100,16 @@ public abstract class AbstractClient implements IClient {
      * 
      * @throws NetworkException if a network error occurs
      */
-    protected void onConnect() throws NetworkException {
-        handler.onConnect(this);
+    @Override
+    public void onConnect() throws NetworkException {
+        handler.onConnect();
     }
     
     /**
      * Called when the connection is disconnected.
      */
-    protected void onDisconnect() {
+    @Override
+    public void onDisconnect() {
         handler.onDisconnect();
     }
     
@@ -199,7 +201,7 @@ public abstract class AbstractClient implements IClient {
     }
     
     /**
-     * Sets the packet context and handler unsafely.
+     * Sets the packet context and handler unsafely and initializes the handler.
      * 
      * @param context the packet context
      * @param handler the network handler
@@ -207,6 +209,8 @@ public abstract class AbstractClient implements IClient {
     protected void setContextUnsafe(PacketContext<?> context, INetHandler handler) {
         this.context = context;
         this.handler = handler;
+        
+        handler.onInit(this);
     }
     
     @Override

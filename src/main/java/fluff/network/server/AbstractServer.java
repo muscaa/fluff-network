@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.Queue;
 import java.util.UUID;
 
 import fluff.functions.gen.Func;
@@ -20,8 +22,11 @@ import fluff.network.packet.PacketContext;
 public abstract class AbstractServer implements IServer {
     
     protected final Map<UUID, IClientConnection> connections = new HashMap<>();
+    protected final Queue<TimeoutConnection> pending = new LinkedList<>();
     
     protected final int port;
+    protected final long timeoutDelay;
+    protected final long sleepDelay;
     
     protected ServerSocket serverSocket;
     
@@ -30,12 +35,35 @@ public abstract class AbstractServer implements IServer {
     protected Func<? extends IPacketChannel> defaultChannelFunc;
     
     /**
+     * Constructs a new server with the specified port, timeout delay and sleep delay.
+     * 
+     * @param port the port on which the server will listen for connections
+     * @param timeoutDelay the delay before a connection times out
+     * @param sleepDelay the delay to sleep between timeout checks
+     */
+    public AbstractServer(int port, long timeoutDelay, long sleepDelay) {
+        this.port = port;
+        this.timeoutDelay = timeoutDelay;
+        this.sleepDelay = sleepDelay;
+    }
+    
+    /**
+     * Constructs a new server with the specified port and timeout delay.
+     * 
+     * @param port the port on which the server will listen for connections
+     * @param timeoutDelay the delay before a connection times out
+     */
+    public AbstractServer(int port, long timeoutDelay) {
+        this(port, timeoutDelay, 500);
+    }
+    
+    /**
      * Constructs a new server with the specified port.
      * 
      * @param port the port on which the server will listen for connections
      */
     public AbstractServer(int port) {
-        this.port = port;
+        this(port, 3000);
     }
     
     /**
@@ -72,9 +100,15 @@ public abstract class AbstractServer implements IServer {
      * @throws NetworkException if a network-related error occurs
      */
     protected void onConnect(IClientConnection client) throws NetworkException {
-        if (connections.containsKey(client.getUUID())) throw new NetworkException("Client with UUID " + client.getUUID() + " already exists!");
+    	UUID uuid = client.getUUID();
+    	if (uuid == null) {
+    		pending.offer(new TimeoutConnection(client, System.currentTimeMillis()));
+    		return;
+    	}
+    	
+        if (connections.containsKey(uuid)) throw new NetworkException("Client with UUID " + client.getUUID() + " already exists!");
         
-        connections.put(client.getUUID(), client);
+        connections.put(uuid, client);
     }
     
     /**
@@ -83,7 +117,10 @@ public abstract class AbstractServer implements IServer {
      * @param client the client connection
      */
     protected void onDisconnect(IClientConnection client) {
-        connections.remove(client.getUUID());
+    	UUID uuid = client.getUUID();
+    	if (uuid == null) return;
+    	
+        connections.remove(uuid);
     }
     
     /**
@@ -102,11 +139,49 @@ public abstract class AbstractServer implements IServer {
         }
     }
     
+    /**
+     * The timeout loop that waits for client connections to timeout.
+     */
+    protected void timeoutLoop() {
+    	while (isRunning()) {
+    		TimeoutConnection tc = pending.peek();
+    		
+    		if (tc == null || System.currentTimeMillis() < tc.getConnectionTime() + timeoutDelay) {
+        		try {
+    				Thread.sleep(sleepDelay);
+    			} catch (InterruptedException e) {}
+        		continue;
+    		}
+    		
+    		pending.poll();
+    		
+    		IClientConnection client = tc.getClient();
+    		if (!establishConnection(client)) {
+    			client.disconnect();
+    		}
+    	}
+    }
+    
+    protected boolean establishConnection(IClientConnection client) {
+		UUID uuid = client.getUUID();
+		if (uuid == null) {
+			return false;
+		}
+		
+		try {
+			client.onConnect();
+			return true;
+		} catch (NetworkException e) {}
+		
+		return false;
+    }
+    
     @Override
     public void sendAll(IPacketOutbound packet) {
         for (Map.Entry<UUID, IClientConnection> e : connections.entrySet()) {
             e.getValue().send(packet);
         }
+        // pending connections not included
     }
     
     @Override
@@ -114,6 +189,10 @@ public abstract class AbstractServer implements IServer {
         for (Map.Entry<UUID, IClientConnection> e : connections.entrySet()) {
             e.getValue().disconnect();
         }
+        for (TimeoutConnection tc : pending) { // might have some synchronization bugs
+        	tc.getClient().disconnect();
+        }
+        pending.clear();
     }
     
     @Override
@@ -125,6 +204,11 @@ public abstract class AbstractServer implements IServer {
         } catch (IOException e) {
             throw new NetworkException(e);
         }
+        
+        Thread timeoutThread = new Thread(this::timeoutLoop);
+        timeoutThread.setName("Timeout Loop");
+        timeoutThread.setDaemon(true);
+        timeoutThread.start();
         
         if (async) {
             Thread t = new Thread(this::loop);

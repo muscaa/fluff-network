@@ -14,6 +14,11 @@ import fluff.network.NetworkException;
  */
 public interface IPacketChannel {
 	
+	/**
+	 * Empty byte array.
+	 */
+	ByteArrayInputStream EMPTY = new ByteArrayInputStream(new byte[0]);
+	
     /**
      * Reads data from the given input stream and returns it as a {@link ByteArrayInputStream}.
      *

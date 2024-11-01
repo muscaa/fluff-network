@@ -75,8 +75,11 @@ public class EncryptedPacketChannel implements IPacketChannel {
     @Override
     public ByteArrayInputStream read(InputStream input) throws IOException, NetworkException {
         try {
+        	int len = Binary.Int(input::read);
+        	if (len == -1) return EMPTY;
+        	
             byte[] iv = Binary.Bytes(input::read, ivSize);
-            byte[] encrypted = Binary.LenBytes(input::read);
+            byte[] encrypted = Binary.Bytes(input::read, len);
             
             Cipher cipher = Cipher.getInstance(cipherTransformation);
             cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(iv));
@@ -98,8 +101,9 @@ public class EncryptedPacketChannel implements IPacketChannel {
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, new IvParameterSpec(iv));
             byte[] encrypted = cipher.doFinal(bytes.toByteArray());
             
+            Binary.Int(output::write, encrypted.length);
             Binary.Bytes(output::write, iv, ivSize);
-            Binary.LenBytes(output::write, encrypted);
+            Binary.Bytes(output::write, encrypted, encrypted.length);
             
             output.flush();
         } catch (GeneralSecurityException e) {
