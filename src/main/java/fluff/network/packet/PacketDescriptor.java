@@ -21,7 +21,7 @@ public class PacketDescriptor<H extends INetHandler, P extends IPacketBase> {
     /**
      * Constructs a new PacketDescriptor with the specified packet direction, packet class, creation function, and handling function.
      *
-     * @param direction the direction of the packet
+     * @param packetDirection the direction of the packet
      * @param packetClass the class of the packet
      * @param packetFunc the function to create a new packet instance
      * @param handleFunc the function to handle the packet
