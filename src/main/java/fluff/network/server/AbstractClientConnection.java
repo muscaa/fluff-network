@@ -1,5 +1,8 @@
 package fluff.network.server;
 
+import java.io.IOException;
+import java.net.Socket;
+
 import fluff.network.NetworkException;
 import fluff.network.client.AbstractClient;
 
@@ -17,6 +20,11 @@ public abstract class AbstractClientConnection extends AbstractClient implements
      */
     public AbstractClientConnection(AbstractServer server) {
         this.server = server;
+    }
+    
+    @Override
+    protected void openConnection(Socket socket) throws IOException, NetworkException {
+    	super.openConnection(socket);
     }
     
     @Override

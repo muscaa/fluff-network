@@ -5,8 +5,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
-import java.util.Queue;
+import java.util.Set;
 import java.util.UUID;
 
 import fluff.functions.gen.Func;
@@ -21,12 +22,11 @@ import fluff.network.packet.PacketContext;
  */
 public abstract class AbstractServer implements IServer {
     
-    protected final Map<UUID, IClientConnection> connections = new HashMap<>();
-    protected final Queue<TimeoutConnection> pending = new LinkedList<>();
-    
+    protected final Map<UUID, AbstractClientConnection> connections = new HashMap<>();
     protected final int port;
-    protected final long timeoutDelay;
-    protected final long sleepDelay;
+    
+    protected final List<ServerModule> modules = new LinkedList<>();
+	protected final ServerAccess access = new ServerAccess(this);
     
     protected ServerSocket serverSocket;
     
@@ -35,45 +35,36 @@ public abstract class AbstractServer implements IServer {
     protected Func<? extends IPacketChannel> defaultChannelFunc;
     
     /**
-     * Constructs a new server with the specified port, timeout delay and sleep delay.
-     * 
-     * @param port the port on which the server will listen for connections
-     * @param timeoutDelay the delay before a connection times out
-     * @param sleepDelay the delay to sleep between timeout checks
-     */
-    public AbstractServer(int port, long timeoutDelay, long sleepDelay) {
-        this.port = port;
-        this.timeoutDelay = timeoutDelay;
-        this.sleepDelay = sleepDelay;
-    }
-    
-    /**
-     * Constructs a new server with the specified port and timeout delay.
-     * 
-     * @param port the port on which the server will listen for connections
-     * @param timeoutDelay the delay before a connection times out
-     */
-    public AbstractServer(int port, long timeoutDelay) {
-        this(port, timeoutDelay, 500);
-    }
-    
-    /**
      * Constructs a new server with the specified port.
      * 
      * @param port the port on which the server will listen for connections
      */
     public AbstractServer(int port) {
-        this(port, 3000);
+        this.port = port;
     }
     
     /**
-     * Creates a new client connection for the specified socket.
+     * Adds a module to the list of server modules.
      * 
-     * @param socket the socket representing the client connection
-     * @throws IOException if an I/O error occurs when creating the connection
-     * @throws NetworkException if a network-related error occurs when creating the connection
+     * @param module the module
+     * @return true if the module was added successfully, false otherwise
      */
-    protected abstract void createConnection(Socket socket) throws IOException, NetworkException;
+    protected boolean addModule(ServerModule module) {
+    	if (isRunning()) return false;
+    	
+    	if (!module.init(this, access)) return false;
+    	
+    	modules.add(module);
+    	
+    	return true;
+    }
+    
+    /**
+     * Creates a new client connection.
+     * 
+     * @return a new client connection
+     */
+    protected abstract AbstractClientConnection createConnection();
     
     /**
      * Sets the default context and handler function for the server.
@@ -91,113 +82,171 @@ public abstract class AbstractServer implements IServer {
      * 
      * @param e the exception representing the error
      */
-    protected void onError(Exception e) {}
+    protected void onError(Exception e) {
+    	for (ServerModule m : modules) {
+    		m.onError(e);
+    	}
+    }
     
     /**
      * Called when a client connects to the server.
      * 
-     * @param client the client connection
+     * @param connection the client connection
      * @throws NetworkException if a network-related error occurs
      */
-    protected void onConnect(IClientConnection client) throws NetworkException {
-    	UUID uuid = client.getUUID();
-    	if (uuid == null) {
-    		pending.offer(new TimeoutConnection(client, System.currentTimeMillis()));
-    		return;
+    protected void onConnect(AbstractClientConnection connection) throws NetworkException {
+    	boolean cancel = false;
+    	for (ServerModule m : modules) {
+    		cancel |= m.onPreConnect(connection);
     	}
+    	if (cancel) return;
     	
-        if (connections.containsKey(uuid)) throw new NetworkException("Client with UUID " + client.getUUID() + " already exists!");
+    	UUID uuid = connection.getUUID();
+    	if (uuid == null) throw new NetworkException("Client's UUID cannot be null!");
+        if (connections.containsKey(uuid)) throw new NetworkException("Client with UUID " + connection.getUUID() + " already exists!");
         
-        connections.put(uuid, client);
+        synchronized (connections) {
+        	connections.put(uuid, connection);
+		}
+        
+    	for (ServerModule m : modules) {
+    		m.onPostConnect(connection);
+    	}
     }
     
     /**
      * Called when a client disconnects from the server.
      * 
-     * @param client the client connection
+     * @param connection the client connection
      */
-    protected void onDisconnect(IClientConnection client) {
-    	UUID uuid = client.getUUID();
+    protected void onDisconnect(AbstractClientConnection connection) {
+    	for (ServerModule m : modules) {
+    		m.onPreDisconnect(connection);
+    	}
+    	
+    	UUID uuid = connection.getUUID();
     	if (uuid == null) return;
     	
-        connections.remove(uuid);
+        synchronized (connections) {
+        	connections.remove(uuid);
+		}
+        
+    	for (ServerModule m : modules) {
+    		m.onPostDisconnect(connection);
+    	}
     }
     
     /**
      * The main server loop that waits for client connections.
      */
     @SuppressWarnings("resource")
-    protected void loop() {
+	protected void loop() {
         while (isRunning()) {
+        	Socket socket = null;
             try {
-                Socket socket = serverSocket.accept();
+            	socket = serverSocket.accept();
+            	
+            	boolean cancel = false;
+            	for (ServerModule m : modules) {
+            		cancel |= m.onPreOpenConnection(socket);
+            	}
+            	if (cancel) continue; // warning: socket remains open
                 
-                createConnection(socket);
+                AbstractClientConnection connection = createConnection();
+                
+            	for (ServerModule m : modules) {
+            		m.onOpenConnection(socket, connection);
+            	}
+                
+                connection.openConnection(socket);
+                
+            	for (ServerModule m : modules) {
+            		m.onPostOpenConnection(connection);
+            	}
             } catch (IOException | NetworkException e) {
                 onError(e);
+                
+                try {
+					if (socket != null) {
+						socket.close();
+					}
+				} catch (IOException e1) {
+					onError(e1);
+				}
             }
         }
     }
     
     /**
-     * The timeout loop that waits for client connections to timeout.
+     * Gets the current connections UUID key set. Used to avoid synchronization errors.
+     * 
+     * @return the current connections UUID key set
      */
-    protected void timeoutLoop() {
-    	while (isRunning()) {
-    		TimeoutConnection tc = pending.peek();
-    		
-    		if (tc == null || System.currentTimeMillis() < tc.getConnectionTime() + timeoutDelay) {
-        		try {
-    				Thread.sleep(sleepDelay);
-    			} catch (InterruptedException e) {}
-        		continue;
-    		}
-    		
-    		pending.poll();
-    		
-    		IClientConnection client = tc.getClient();
-    		if (!establishConnection(client)) {
-    			client.disconnect();
-    		}
-    	}
-    }
-    
-    protected boolean establishConnection(IClientConnection client) {
-		UUID uuid = client.getUUID();
-		if (uuid == null) {
-			return false;
+    protected Set<UUID> getUUIDKeys() {
+    	Set<UUID> set;
+    	synchronized (connections) {
+    		set = Set.copyOf(connections.keySet());
 		}
-		
-		try {
-			client.onConnect();
-			return true;
-		} catch (NetworkException e) {}
-		
-		return false;
+    	return set;
     }
     
     @Override
     public void sendAll(IPacketOutbound packet) {
-        for (Map.Entry<UUID, IClientConnection> e : connections.entrySet()) {
-            e.getValue().send(packet);
+    	boolean cancel = false;
+    	for (ServerModule m : modules) {
+    		cancel |= m.onPreSendAll(packet);
+    	}
+    	if (cancel) return;
+    	
+    	for (ServerModule m : modules) {
+    		m.onSendAll(packet);
+    	}
+    	
+    	Set<UUID> keys = getUUIDKeys();
+        for (UUID uuid : keys) {
+        	AbstractClientConnection connection = connections.get(uuid);
+        	if (connection == null) continue;
+        	
+            connection.send(packet);
         }
-        // pending connections not included
+        
+    	for (ServerModule m : modules) {
+    		m.onPostSendAll(packet);
+    	}
     }
     
     @Override
     public void disconnectAll() {
-        for (Map.Entry<UUID, IClientConnection> e : connections.entrySet()) {
-            e.getValue().disconnect();
+    	boolean cancel = false;
+    	for (ServerModule m : modules) {
+    		cancel |= m.onPreDisconnectAll();
+    	}
+    	if (cancel) return;
+    	
+    	for (ServerModule m : modules) {
+    		m.onDisconnectAll();
+    	}
+    	
+    	Set<UUID> keys = getUUIDKeys();
+        for (UUID uuid : keys) {
+        	AbstractClientConnection connection = connections.get(uuid);
+        	if (connection == null) continue;
+        	
+            connection.disconnect();
         }
-        for (TimeoutConnection tc : pending) { // might have some synchronization bugs
-        	tc.getClient().disconnect();
-        }
-        pending.clear();
+        
+    	for (ServerModule m : modules) {
+    		m.onPostDisconnectAll();
+    	}
     }
     
     @Override
     public void start(boolean async) throws NetworkException {
         if (isRunning()) throw new NetworkException("Server already running!");
+        
+    	for (ServerModule m : modules) {
+    		m.onPreStart(async);
+    	}
         
         try {
             serverSocket = new ServerSocket(port);
@@ -205,10 +254,9 @@ public abstract class AbstractServer implements IServer {
             throw new NetworkException(e);
         }
         
-        Thread timeoutThread = new Thread(this::timeoutLoop);
-        timeoutThread.setName("Timeout Loop");
-        timeoutThread.setDaemon(true);
-        timeoutThread.start();
+    	for (ServerModule m : modules) {
+    		m.onStart(serverSocket, async);
+    	}
         
         if (async) {
             Thread t = new Thread(this::loop);
@@ -218,17 +266,33 @@ public abstract class AbstractServer implements IServer {
         } else {
             loop();
         }
+        
+    	for (ServerModule m : modules) {
+    		m.onPostStart(async);
+    	}
     }
     
     @Override
     public void stop() {
         if (!isRunning()) return;
         
+    	for (ServerModule m : modules) {
+    		m.onPreStop();
+    	}
+        
         disconnectAll();
+        
+    	for (ServerModule m : modules) {
+    		m.onStop();
+    	}
         
         try {
             serverSocket.close();
         } catch (IOException e) {}
+        
+    	for (ServerModule m : modules) {
+    		m.onPostStop();
+    	}
     }
     
     @Override
