@@ -56,7 +56,7 @@ public class TimeoutModule extends ServerModule {
     	while (server.isRunning()) {
     		TimeoutConnection tc = pending.peek();
     		
-    		if (tc == null || (tc.connection.getUUID() == null && System.currentTimeMillis() < tc.connectionTime + timeoutDelay)) {
+    		if (tc == null || (tc.connection.isConnected() && tc.connection.getUUID() == null && System.currentTimeMillis() < tc.connectionTime + timeoutDelay)) {
         		try {
     				Thread.sleep(sleepDelay);
     			} catch (InterruptedException e) {}
@@ -68,16 +68,37 @@ public class TimeoutModule extends ServerModule {
 			}
     		
     		AbstractClientConnection connection = tc.connection;
+			if (!connection.isConnected()) continue;
+    		
     		if (connection.getUUID() != null) {
         		try {
-        			connection.onConnect();
+        			connect(connection);
         			continue;
         		} catch (NetworkException e) {}
     		}
     		
-    		connection.disconnect();
+    		disconnect(connection);
     	}
     }
+    
+    /**
+     * Connects the client to the server.
+     * 
+     * @param connection the client connection
+     * @throws NetworkException if an error occurs while connecting the client
+     */
+	protected void connect(AbstractClientConnection connection) throws NetworkException {
+		connection.onConnect();
+	}
+	
+	/**
+	 * Disconnects the client from the server.
+	 * 
+	 * @param connection the client connection
+	 */
+	protected void disconnect(AbstractClientConnection connection) {
+		connection.disconnect();
+	}
     
     @Override
     public void onStart(ServerSocket serverSocket, boolean async) {
@@ -109,7 +130,7 @@ public class TimeoutModule extends ServerModule {
 		}
     }
     
-    private class TimeoutConnection {
+    public static class TimeoutConnection {
     	
     	private final AbstractClientConnection connection;
     	private final long connectionTime;
