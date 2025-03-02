@@ -90,6 +90,8 @@ public class TimeoutModule extends ServerModule {
 	protected void connect(AbstractClientConnection connection) throws NetworkException {
 		if (connection instanceof TimeoutListener listener) {
 			listener.onConnectionEstablished();
+			
+			access.onConnect(connection);
 		} else {
 			connection.onConnect();
 		}
@@ -102,7 +104,7 @@ public class TimeoutModule extends ServerModule {
 	 */
 	protected void disconnect(AbstractClientConnection connection) {
 		if (connection instanceof TimeoutListener listener) {
-			listener.onConnectionTimeout();
+			listener.onConnectionTimedOut();
 		} else {
 			connection.disconnect();
 		}
@@ -138,10 +140,13 @@ public class TimeoutModule extends ServerModule {
 		}
     }
     
+    /**
+     * Represents a timeout connection.
+     */
     public static class TimeoutConnection {
     	
-    	private final AbstractClientConnection connection;
-    	private final long connectionTime;
+    	public final AbstractClientConnection connection;
+    	public final long connectionTime;
     	
     	public TimeoutConnection(AbstractClientConnection connection, long connectionTime) {
     		this.connection = connection;
@@ -149,10 +154,21 @@ public class TimeoutModule extends ServerModule {
     	}
     }
     
+    /**
+     * Represents a timeout listener.
+     */
     public static interface TimeoutListener {
     	
-    	void onConnectionTimeout();
+    	/**
+    	 * Called when the connection is timed out.
+    	 */
+    	void onConnectionTimedOut();
     	
-    	void onConnectionEstablished();
+    	/**
+    	 * Called when the connection is established.
+    	 * 
+    	 * @throws NetworkException if an error occurs while establishing the connection
+    	 */
+    	void onConnectionEstablished() throws NetworkException;
     }
 }
