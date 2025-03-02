@@ -88,7 +88,11 @@ public class TimeoutModule extends ServerModule {
      * @throws NetworkException if an error occurs while connecting the client
      */
 	protected void connect(AbstractClientConnection connection) throws NetworkException {
-		connection.onConnect();
+		if (connection instanceof TimeoutListener listener) {
+			listener.onConnectionEstablished();
+		} else {
+			connection.onConnect();
+		}
 	}
 	
 	/**
@@ -97,7 +101,11 @@ public class TimeoutModule extends ServerModule {
 	 * @param connection the client connection
 	 */
 	protected void disconnect(AbstractClientConnection connection) {
-		connection.disconnect();
+		if (connection instanceof TimeoutListener listener) {
+			listener.onConnectionTimeout();
+		} else {
+			connection.disconnect();
+		}
 	}
     
     @Override
@@ -139,5 +147,12 @@ public class TimeoutModule extends ServerModule {
     		this.connection = connection;
     		this.connectionTime = connectionTime;
     	}
+    }
+    
+    public static interface TimeoutListener {
+    	
+    	void onConnectionTimeout();
+    	
+    	void onConnectionEstablished();
     }
 }
