@@ -1,10 +1,10 @@
 package fluff.network.packet;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 
 import fluff.network.NetworkException;
 
@@ -27,7 +27,7 @@ public interface IPacketChannel {
      * @throws IOException if an I/O error occurs while reading from the stream
      * @throws NetworkException if a network-related error occurs while reading from the stream
      */
-    ByteArrayInputStream read(InputStream input) throws IOException, NetworkException;
+    ByteArrayInputStream read(BufferedInputStream input) throws IOException, NetworkException;
     
     /**
      * Writes data to the given output stream from the provided {@link ByteArrayOutputStream}.
@@ -37,5 +37,5 @@ public interface IPacketChannel {
      * @throws IOException if an I/O error occurs while writing to the stream
      * @throws NetworkException if a network-related error occurs while writing to the stream
      */
-    void write(OutputStream output, ByteArrayOutputStream bytes) throws IOException, NetworkException;
+    void write(BufferedOutputStream output, ByteArrayOutputStream bytes) throws IOException, NetworkException;
 }

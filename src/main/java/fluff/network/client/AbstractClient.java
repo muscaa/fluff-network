@@ -1,10 +1,10 @@
 package fluff.network.client;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.Objects;
@@ -27,8 +27,8 @@ import fluff.network.packet.PacketDescriptor;
 public abstract class AbstractClient implements IClient {
     
     protected Socket socket;
-    protected InputStream socketIn;
-    protected OutputStream socketOut;
+    protected BufferedInputStream socketIn;
+    protected BufferedOutputStream socketOut;
     
     protected PacketContext<?> context;
     protected INetHandler handler;
@@ -45,8 +45,8 @@ public abstract class AbstractClient implements IClient {
         if (isConnected()) throw new NetworkException("Client already has a connection!");
         
         this.socket = socket;
-        this.socketIn = socket.getInputStream();
-        this.socketOut = socket.getOutputStream();
+        this.socketIn = new BufferedInputStream(socket.getInputStream());
+        this.socketOut = new BufferedOutputStream(socket.getOutputStream());
         
         Thread t = new Thread(this::handleReceive);
         t.setName("Packet Receiver");
